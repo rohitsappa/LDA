@@ -1,0 +1,125 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_wine
+from sklearn.preprocessing import StandardScaler
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (accuracy_score, precision_recall_fscore_support,
+                           confusion_matrix, classification_report)
+
+def lab2_lda_classification():
+    # Step 1: Data Preparation
+    print("Step 1: Data Preparation")
+    # Load dataset
+    wine = load_wine()
+    X, y = wine.data, wine.target
+    
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.3, random_state=42
+    )
+    
+    # Standardize features
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    print("Training set shape:", X_train_scaled.shape)
+    print("Test set shape:", X_test_scaled.shape)
+
+    # Step 2: Model Training
+    print("\nStep 2: Training Models")
+    # Train LDA
+    lda = LinearDiscriminantAnalysis()
+    lda.fit(X_train_scaled, y_train)
+    
+    # Train Logistic Regression
+    lr = LogisticRegression(multi_class='multinomial', 
+                           max_iter=1000)
+    lr.fit(X_train_scaled, y_train)
+
+    # Step 3: Model Evaluation
+    def evaluate_model(model, X, y_true, name):
+        y_pred = model.predict(X)
+        accuracy = accuracy_score(y_true, y_pred)
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            y_true, y_pred, average='weighted'
+        )
+        conf_matrix = confusion_matrix(y_true, y_pred)
+        
+        print(f"\n{name} Results:")
+        print(f"Accuracy: {accuracy:.4f}")
+        print(f"Precision: {precision:.4f}")
+        print(f"Recall: {recall:.4f}")
+        print(f"F1-Score: {f1:.4f}")
+        print("\nConfusion Matrix:")
+        print(conf_matrix)
+        print("\nClassification Report:")
+        print(classification_report(y_true, y_pred))
+        
+        return conf_matrix, accuracy, precision, recall, f1
+
+    print("\nStep 3: Model Evaluation")
+    # Evaluate both models
+    lda_metrics = evaluate_model(lda, X_test_scaled, y_test, "LDA")
+    lr_metrics = evaluate_model(lr, X_test_scaled, y_test, 
+                              "Logistic Regression")
+
+    # Step 4: Visualization of Decision Boundaries
+    def plot_decision_boundaries(X, y, models, model_names):
+        # Reduce to 2D using LDA
+        lda_viz = LinearDiscriminantAnalysis(n_components=2)
+        X_2d = lda_viz.fit_transform(X, y)
+        
+        # Create mesh grid
+        x_min, x_max = X_2d[:, 0].min() - 1, X_2d[:, 0].max() + 1
+        y_min, y_max = X_2d[:, 1].min() - 1, X_2d[:, 1].max() + 1
+        xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.1),
+                            np.arange(y_min, y_max, 0.1))
+        
+        plt.figure(figsize=(12, 5))
+        
+        for idx, (model, name) in enumerate(zip(models, model_names)):
+            plt.subplot(1, 2, idx + 1)
+            
+            # Fit model on 2D data
+            model_2d = model.__class__()
+            model_2d.fit(X_2d, y)
+            
+            # Plot decision boundary
+            Z = model_2d.predict(np.c_[xx.ravel(), yy.ravel()])
+            Z = Z.reshape(xx.shape)
+            plt.contourf(xx, yy, Z, alpha=0.4)
+            
+            # Plot training points
+            scatter = plt.scatter(X_2d[:, 0], X_2d[:, 1], 
+                                c=y, cmap='viridis')
+            plt.colorbar(scatter)
+            
+            plt.title(f'{name} Decision Boundaries')
+            plt.xlabel('First LDA Component')
+            plt.ylabel('Second LDA Component')
+        
+        plt.tight_layout()
+        plt.show()
+
+    print("\nStep 4: Plotting Decision Boundaries")
+    plot_decision_boundaries(X_train_scaled, y_train, 
+                           [lda, lr], 
+                           ["LDA", "Logistic Regression"])
+
+    # Step 5: Comparative Analysis
+    print("\nStep 5: Comparative Analysis")
+    print("Model Comparison Summary:")
+    print("1. Classification Performance:")
+    print(f"   LDA Accuracy: {lda_metrics[1]:.4f}")
+    print(f"   Logistic Regression Accuracy: {lr_metrics[1]:.4f}")
+    print("\n2. Computational Aspects:")
+    print("   - LDA assumes normal distribution with equal covariance")
+    print("   - Logistic Regression makes no distribution assumptions")
+    print("\n3. Model Interpretability:")
+    print("   - LDA provides feature importance through discriminants")
+    print("   - Logistic Regression provides feature importance through coefficients")
+
+if __name__ == "__main__":
+    lab2_lda_classification()
